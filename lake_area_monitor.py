@@ -113,7 +113,7 @@ def _plausible_water_mask():
     while leaving room for real lake expansion beyond the 2021 extent.
     """
     gsw = ee.Image("JRC/GSW1_4/GlobalSurfaceWater").select("max_extent")
-    return gsw.eq(1).focal_max(60, "meters")
+    return gsw.eq(1).focal_max(radius=60, units="meters")
 
 
 def s2_water_area_km2(img, buf):
