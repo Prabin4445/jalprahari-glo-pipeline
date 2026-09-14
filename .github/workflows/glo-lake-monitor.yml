@@ -35,5 +35,7 @@ jobs:
         run: |
           git config user.name "glo-lake-monitor"
           git config user.email "glo-lake-monitor@users.noreply.github.com"
+          # remote may have moved (e.g. you edited files) - rebase first so push never fails
+          git -c rebase.autoStash=true pull --rebase origin main || true
           git add data/glo-lakes-latest.json
           git diff --cached --quiet || (git commit -m "lake areas $(date -u +%F)" && git push)
