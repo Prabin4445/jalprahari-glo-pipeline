@@ -106,10 +106,20 @@ def mask_s2_clouds(img):
     return img.updateMask(keep)
 
 
+def _plausible_water_mask():
+    """JRC Global Surface Water max-extent mask (1984-2021), dilated ~60 m.
+
+    Stops wet monsoon ground / moist glacier ice being counted as lake,
+    while leaving room for real lake expansion beyond the 2021 extent.
+    """
+    gsw = ee.Image("JRC/GSW1_4/GlobalSurfaceWater").select("max_extent")
+    return gsw.eq(1).focal_max(60, "meters")
+
+
 def s2_water_area_km2(img, buf):
     img = mask_s2_clouds(img)
     ndwi = img.normalizedDifference(["B3", "B8"]).rename("NDWI")
-    water = ndwi.gt(NDWI_THRESHOLD)
+    water = ndwi.gt(NDWI_THRESHOLD).And(_plausible_water_mask()).rename("NDWI")
     area = water.multiply(ee.Image.pixelArea()).divide(1e6)
     total = area.reduceRegion(
         reducer=ee.Reducer.sum(), geometry=buf, scale=10,
@@ -129,7 +139,7 @@ def s1_water_area_km2(buf, start, end):
     if n == 0:
         return None
     vv = col.select("VV").median()
-    water = vv.lt(S1_WATER_VV_DB)
+    water = vv.lt(S1_WATER_VV_DB).And(_plausible_water_mask()).rename("VV")
     area = water.multiply(ee.Image.pixelArea()).divide(1e6)
     total = area.reduceRegion(
         reducer=ee.Reducer.sum(), geometry=buf, scale=10,
