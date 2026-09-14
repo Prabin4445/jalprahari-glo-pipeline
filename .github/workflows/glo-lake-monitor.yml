@@ -1,0 +1,39 @@
+name: GLO lake area monitor
+
+# Weekly near-real-time lake-area measurement for JalPrahari's 5 GLOF watch
+# lakes. Free tier: GitHub Actions + Google Earth Engine (noncommercial).
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC (Sentinel-2 revisits every ~5 days)
+  workflow_dispatch: # manual run button in the Actions tab
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # to commit the updated JSON feed
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Measure lake areas
+        env:
+          EE_SERVICE_ACCOUNT: ${{ secrets.EE_SERVICE_ACCOUNT }}
+          EE_KEY_JSON: ${{ secrets.EE_KEY_JSON }}
+        run: |
+          echo "$EE_KEY_JSON" > ee-key.json
+          EE_KEY_PATH=ee-key.json python lake_area_monitor.py
+          rm -f ee-key.json
+
+      - name: Commit updated feed
+        run: |
+          git config user.name "glo-lake-monitor"
+          git config user.email "glo-lake-monitor@users.noreply.github.com"
+          git add data/glo-lakes-latest.json
+          git diff --cached --quiet || (git commit -m "lake areas $(date -u +%F)" && git push)
