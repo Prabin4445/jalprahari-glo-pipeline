@@ -61,6 +61,7 @@ LAKES = [
 
 BUFFER_M = 2500          # search radius around the lake centroid
 WINDOW_DAYS = 45         # look back this far for a clear observation
+S2_WINDOW_DAYS = 150     # optical hunt: reach back to pre-monsoon clear scenes
 S2_MAX_CLOUD_PCT = 30    # skip scenes cloudier than this
 NDWI_THRESHOLD = 0.15    # water if NDWI > threshold
 S1_WATER_VV_DB = -16.0   # water if Sentinel-1 VV backscatter below this (dB)
@@ -148,18 +149,21 @@ def s1_water_area_km2(buf, start, end):
 
 
 def indicator_for(change_pct):
-    """App monitoring indicator only — never presented as an official warning."""
-    a = abs(change_pct)
-    if a < 2:
-        return "stable", "🟢"
-    if a < 5:
-        return ("increasing" if change_pct > 0 else "shrinking"), "🟡"
-    if a < 10:
-        return ("rapid" if change_pct > 0 else "shrinking"), "🟠"
-    return ("concern" if change_pct > 0 else "shrinking"), "🔴"
+    """App monitoring indicator only — never presented as an official warning.
+    For GLOF watch, only *growth* is potentially concerning; shrinkage is
+    informational, never an alarm."""
+    if change_pct >= 10:
+        return "concern", "🔴"
+    if change_pct >= 5:
+        return "rapid growth", "🟠"
+    if change_pct >= 2:
+        return "increasing", "🟡"
+    if change_pct <= -2:
+        return "shrinking", "🔵"
+    return "stable", "🟢"
 
 
-def measure_lake(lake, start, end):
+def measure_lake(lake, s2_start, s1_start, end):
     pt = ee.Geometry.Point([lake["lon"], lake["lat"]])
     buf = pt.buffer(BUFFER_M)
     result = {
@@ -178,7 +182,7 @@ def measure_lake(lake, start, end):
 
     # 1) Sentinel-2 optical (preferred: 10 m, true water index)
     try:
-        img = s2_clear_image(buf, start, end)
+        img = s2_clear_image(buf, s2_start, end)
         if img is not None:
             area = s2_water_area_km2(img, buf)
             if area is not None:
@@ -197,7 +201,7 @@ def measure_lake(lake, start, end):
     # 2) Sentinel-1 SAR fallback (cloud-penetrating radar)
     if result["current_km2"] is None:
         try:
-            area = s1_water_area_km2(buf, start, end)
+            area = s1_water_area_km2(buf, s1_start, end)
             if area is not None:
                 result.update({
                     "current_km2": round(float(area), 4),
@@ -228,13 +232,15 @@ def main():
     init_earth_engine()
     end = datetime.now(timezone.utc)
     start = end - timedelta(days=WINDOW_DAYS)
+    s2_start = end - timedelta(days=S2_WINDOW_DAYS)
     start_s, end_s = start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d")
-    print(f"Window: {start_s} .. {end_s}")
+    print(f"Window: {start_s} .. {end_s} "
+          f"(optical hunts back to {s2_start.strftime('%Y-%m-%d')})")
 
     lakes = []
     for lake in LAKES:
         print(f"Measuring {lake['name_en']} ...")
-        r = measure_lake(lake, start, end)
+        r = measure_lake(lake, s2_start, start, end)
         print(f"  -> {r['current_km2']} km2 ({r['sensor']}) "
               f"change {r['change_pct']}% [{r['indicator']}]")
         lakes.append(r)
