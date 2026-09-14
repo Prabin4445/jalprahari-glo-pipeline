@@ -81,11 +81,16 @@ def init_earth_engine():
         print("Earth Engine: default credentials")
 
 
+def _date_str(d):
+    """Earth Engine filterDate wants 'YYYY-MM-DD' text; accept datetimes too."""
+    return d if isinstance(d, str) else d.strftime("%Y-%m-%d")
+
+
 def s2_clear_image(buf, start, end):
     """Least-cloudy Sentinel-2 surface-reflectance image in the window."""
     col = (ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
            .filterBounds(buf)
-           .filterDate(start, end)
+           .filterDate(_date_str(start), _date_str(end))
            .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", S2_MAX_CLOUD_PCT))
            .sort("CLOUDY_PIXEL_PERCENTAGE"))
     n = col.size().getInfo()
@@ -116,7 +121,7 @@ def s1_water_area_km2(buf, start, end):
     """Sentinel-1 SAR fallback: sees through clouds and darkness."""
     col = (ee.ImageCollection("COPERNICUS/S1_GRD")
            .filterBounds(buf)
-           .filterDate(start, end)
+           .filterDate(_date_str(start), _date_str(end))
            .filter(ee.Filter.eq("instrumentMode", "IW"))
            .filter(ee.Filter.listContains(
                "transmitterReceiverPolarisation", "VV")))
