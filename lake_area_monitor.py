@@ -219,7 +219,7 @@ def main():
     lakes = []
     for lake in LAKES:
         print(f"Measuring {lake['name_en']} ...")
-        r = measure_lake(lake, start_s, end_s)
+        r = measure_lake(lake, start, end)
         print(f"  -> {r['current_km2']} km2 ({r['sensor']}) "
               f"change {r['change_pct']}% [{r['indicator']}]")
         lakes.append(r)
