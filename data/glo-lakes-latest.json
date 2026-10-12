@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-05T13:24:50.677987+00:00",
+  "updated_at": "2026-10-12T14:14:08.230375+00:00",
   "source": "google-earth-engine",
   "sensors": "Sentinel-2 optical, Sentinel-1 SAR fallback",
   "baseline": "GLO Sentinel-2 inventory 2017-2024 (2024 area)",
